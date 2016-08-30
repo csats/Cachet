@@ -47,7 +47,7 @@ class SendInviteUserEmailHandler
     {
         $mail = [
             'email'   => $event->invite->email,
-            'subject' => 'You have been invited.',
+            'subject' => '[C-SATS Status] You have been invited.',
             'link'    => route('signup.invite', ['code' => $event->invite->code]),
         ];
 

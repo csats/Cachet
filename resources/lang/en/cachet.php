@@ -86,13 +86,13 @@ return [
                 'button' => 'Confirm Subscription',
             ],
             'maintenance' => [
-                'subject' => '[Maintenance Scheduled] :name',
+                'subject' => '[C-SATS Status] Maintenance Scheduled - :name',
             ],
             'incident' => [
-                'subject' => '[New Incident] :status: :name',
+                'subject' => '[C-SATS Status] :status: :name',
             ],
             'component' => [
-                'subject'       => 'Component Status Update',
+                'subject'       => '[C-SATS Status] Component Status Update',
                 'text'          => 'The component :component_name has seen a status change. The component is now at :component_human_status.\nThank you, :app_name',
                 'html'          => '<p>The component :component_name has seen a status change. The component is now at :component_human_status.</p><p>Thank you, :app_name</p>',
                 'tooltip-title' => 'Subscribe to notifications for :component_name.',

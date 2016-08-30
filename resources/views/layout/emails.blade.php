@@ -199,7 +199,7 @@
                 <table class="email-content" width="100%" cellpadding="0" cellspacing="0">
                     <tr>
                         <td class="email-masthead">
-                            <a class="email-masthead_name">{{ $app_name}} </a>
+                            <a class="email-masthead_name" href="https://status.csats.com/">{{ $app_name}} </a>
                         </td>
                     </tr>
                     <tr>
