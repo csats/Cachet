@@ -11,10 +11,15 @@
 
 namespace CachetHQ\Cachet\Repositories\Metric;
 
-use CachetHQ\Cachet\Dates\DateFactory;
 use CachetHQ\Cachet\Models\Metric;
+use CachetHQ\Cachet\Services\Dates\DateFactory;
 use DateInterval;
 
+/**
+ * This is the metric repository class.
+ *
+ * @author James Brooks <james@alt-three.com>
+ */
 class MetricRepository
 {
     /**
@@ -27,7 +32,7 @@ class MetricRepository
     /**
      * The date factory instance.
      *
-     * @var \CachetHQ\Cachet\Dates\DateFactory
+     * @var \CachetHQ\Cachet\Services\Dates\DateFactory
      */
     protected $dates;
 
@@ -35,7 +40,7 @@ class MetricRepository
      * Create a new metric repository class.
      *
      * @param \CachetHQ\Cachet\Repositories\Metric\MetricInterface $repository
-     * @param \CachetHQ\Cachet\Dates\DateFactory                   $dates
+     * @param \CachetHQ\Cachet\Services\Dates\DateFactory          $dates
      *
      * @return void
      */
@@ -50,22 +55,33 @@ class MetricRepository
      *
      * @param \CachetHQ\Cachet\Models\Metric $metric
      *
-     * @return array
+     * @return \Illuminate\Support\Collection
      */
     public function listPointsLastHour(Metric $metric)
     {
         $dateTime = $this->dates->make();
+        $pointKey = $dateTime->format('Y-m-d H:i');
+        $nrOfMinutes = 61;
+        $points = $this->repository->getPointsSinceMinutes($metric, $nrOfMinutes + $metric->threshold)->pluck('value', 'key')->take(-$nrOfMinutes);
 
-        $points = [];
+        $timeframe = $nrOfMinutes;
+        for ($i = 0; $i < $timeframe; $i++) {
+            if (!$points->has($pointKey)) {
+                if ($i >= $metric->threshold) {
+                    $points->put($pointKey, $metric->default_value);
+                } else {
+                    // The point not found is still within the threshold, so it is ignored and
+                    // the timeframe is shifted by one minute
+                    $timeframe++;
+                }
+            }
 
-        $pointKey = $dateTime->format('H:i');
-
-        for ($i = 0; $i <= 60; $i++) {
-            $points[$pointKey] = $this->repository->getPointsLastHour($metric, 0, $i);
-            $pointKey = $dateTime->sub(new DateInterval('PT1M'))->format('H:i');
+            $pointKey = $dateTime->sub(new DateInterval('PT1M'))->format('Y-m-d H:i');
         }
 
-        return array_reverse($points);
+        return $points->sortBy(function ($point, $key) {
+            return $key;
+        });
     }
 
     /**
@@ -79,17 +95,20 @@ class MetricRepository
     public function listPointsToday(Metric $metric, $hours = 12)
     {
         $dateTime = $this->dates->make();
+        $pointKey = $dateTime->format('Y-m-d H:00');
+        $points = $this->repository->getPointsSinceHour($metric, $hours)->pluck('value', 'key');
 
-        $points = [];
+        for ($i = 0; $i < $hours; $i++) {
+            if (!$points->has($pointKey)) {
+                $points->put($pointKey, $metric->default_value);
+            }
 
-        $pointKey = $dateTime->format('H:00');
-
-        for ($i = 0; $i <= $hours; $i++) {
-            $points[$pointKey] = $this->repository->getPointsByHour($metric, $i);
-            $pointKey = $dateTime->sub(new DateInterval('PT1H'))->format('H:00');
+            $pointKey = $dateTime->sub(new DateInterval('PT1H'))->format('Y-m-d H:00');
         }
 
-        return array_reverse($points);
+        return $points->sortBy(function ($point, $key) {
+            return $key;
+        });
     }
 
     /**
@@ -102,17 +121,20 @@ class MetricRepository
     public function listPointsForWeek(Metric $metric)
     {
         $dateTime = $this->dates->make();
-
-        $points = [];
-
-        $pointKey = $dateTime->format('D jS M');
+        $pointKey = $dateTime->format('Y-m-d');
+        $points = $this->repository->getPointsSinceDay($metric, 7)->pluck('value', 'key');
 
         for ($i = 0; $i <= 7; $i++) {
-            $points[$pointKey] = $this->repository->getPointsForDayInWeek($metric, $i);
-            $pointKey = $dateTime->sub(new DateInterval('P1D'))->format('D jS M');
+            if (!$points->has($pointKey)) {
+                $points->put($pointKey, $metric->default_value);
+            }
+
+            $pointKey = $dateTime->sub(new DateInterval('P1D'))->format('Y-m-d');
         }
 
-        return array_reverse($points);
+        return $points->sortBy(function ($point, $key) {
+            return $key;
+        });
     }
 
     /**
@@ -125,18 +147,20 @@ class MetricRepository
     public function listPointsForMonth(Metric $metric)
     {
         $dateTime = $this->dates->make();
-
+        $pointKey = $dateTime->format('Y-m-d');
         $daysInMonth = $dateTime->format('t');
-
-        $points = [];
-
-        $pointKey = $dateTime->format('jS M');
+        $points = $this->repository->getPointsSinceDay($metric, $daysInMonth)->pluck('value', 'key');
 
         for ($i = 0; $i <= $daysInMonth; $i++) {
-            $points[$pointKey] = $this->repository->getPointsForDayInWeek($metric, $i);
-            $pointKey = $dateTime->sub(new DateInterval('P1D'))->format('jS M');
+            if (!$points->has($pointKey)) {
+                $points->put($pointKey, $metric->default_value);
+            }
+
+            $pointKey = $dateTime->sub(new DateInterval('P1D'))->format('Y-m-d');
         }
 
-        return array_reverse($points);
+        return $points->sortBy(function ($point, $key) {
+            return $key;
+        });
     }
 }

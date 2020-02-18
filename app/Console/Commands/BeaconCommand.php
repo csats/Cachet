@@ -33,14 +33,14 @@ class BeaconCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Send a beacon to the Cachet server.';
+    protected $description = 'Communicate with the Cachet Beacon server';
 
     /**
      * Execute the console command.
      *
      * @return void
      */
-    public function fire()
+    public function handle()
     {
         dispatch(new SendBeaconJob());
     }

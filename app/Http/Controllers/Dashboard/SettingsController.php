@@ -11,12 +11,16 @@
 
 namespace CachetHQ\Cachet\Http\Controllers\Dashboard;
 
+use CachetHQ\Cachet\Bus\Commands\System\Config\UpdateConfigCommand;
 use CachetHQ\Cachet\Integrations\Contracts\Credits;
 use CachetHQ\Cachet\Models\User;
+use CachetHQ\Cachet\Notifications\System\SystemTestNotification;
 use CachetHQ\Cachet\Settings\Repository;
 use Exception;
 use GrahamCampbell\Binput\Facades\Binput;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +28,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Str;
+use Monolog\Handler\SyslogHandler;
 
 class SettingsController extends Controller
 {
@@ -44,56 +49,62 @@ class SettingsController extends Controller
         $this->subMenu = [
             'setup' => [
                 'title'  => trans('dashboard.settings.app-setup.app-setup'),
-                'url'    => route('dashboard.settings.setup'),
+                'url'    => cachet_route('dashboard.settings.setup'),
                 'icon'   => 'ion-gear-b',
                 'active' => false,
             ],
             'theme' => [
                 'title'  => trans('dashboard.settings.theme.theme'),
-                'url'    => route('dashboard.settings.theme'),
+                'url'    => cachet_route('dashboard.settings.theme'),
                 'icon'   => 'ion-paintbrush',
                 'active' => false,
             ],
             'stylesheet' => [
                 'title'  => trans('dashboard.settings.stylesheet.stylesheet'),
-                'url'    => route('dashboard.settings.stylesheet'),
+                'url'    => cachet_route('dashboard.settings.stylesheet'),
                 'icon'   => 'ion-paintbucket',
                 'active' => false,
             ],
             'customization' => [
                 'title'  => trans('dashboard.settings.customization.customization'),
-                'url'    => route('dashboard.settings.customization'),
+                'url'    => cachet_route('dashboard.settings.customization'),
                 'icon'   => 'ion-wand',
                 'active' => false,
             ],
             'localization' => [
                 'title'  => trans('dashboard.settings.localization.localization'),
-                'url'    => route('dashboard.settings.localization'),
+                'url'    => cachet_route('dashboard.settings.localization'),
                 'icon'   => 'ion-earth',
                 'active' => false,
             ],
             'security' => [
                 'title'  => trans('dashboard.settings.security.security'),
-                'url'    => route('dashboard.settings.security'),
+                'url'    => cachet_route('dashboard.settings.security'),
                 'icon'   => 'ion-lock-combination',
                 'active' => false,
             ],
             'analytics' => [
                 'title'  => trans('dashboard.settings.analytics.analytics'),
-                'url'    => route('dashboard.settings.analytics'),
+                'url'    => cachet_route('dashboard.settings.analytics'),
                 'icon'   => 'ion-stats-bars',
                 'active' => false,
             ],
             'log' => [
                 'title'  => trans('dashboard.settings.log.log'),
-                'url'    => route('dashboard.settings.log'),
+                'url'    => cachet_route('dashboard.settings.log'),
                 'icon'   => 'ion-document-text',
                 'active' => false,
             ],
             'credits' => [
                 'title'  => trans('dashboard.settings.credits.credits'),
-                'url'    => route('dashboard.settings.credits'),
+                'url'    => cachet_route('dashboard.settings.credits'),
                 'icon'   => 'ion-ios-list',
+                'active' => false,
+            ],
+            'mail' => [
+                'title'  => trans('dashboard.settings.mail.mail'),
+                'url'    => cachet_route('dashboard.settings.mail'),
+                'icon'   => 'ion-paper-airplane',
                 'active' => false,
             ],
             'about' => [
@@ -105,8 +116,8 @@ class SettingsController extends Controller
         ];
 
         View::share([
-            'sub_title' => trans('dashboard.settings.settings'),
-            'sub_menu'  => $this->subMenu,
+            'subTitle' => trans('dashboard.settings.settings'),
+            'subMenu'  => $this->subMenu,
         ]);
     }
 
@@ -200,7 +211,7 @@ class SettingsController extends Controller
     {
         $this->subMenu['security']['active'] = true;
 
-        $unsecureUsers = User::whereNull('google_2fa_secret')->orWhere('google_2fa_secret', '')->get();
+        $unsecureUsers = User::whereNull('google_2fa_secret')->orWhere('google_2fa_secret', '=', '')->get();
 
         Session::flash('redirect_to', $this->subMenu['security']['url']);
 
@@ -259,11 +270,60 @@ class SettingsController extends Controller
     {
         $this->subMenu['log']['active'] = true;
 
-        $log = Log::getMonolog();
+        $log = Log::getLogger();
 
-        $logContents = file_get_contents($log->getHandlers()[0]->getUrl());
+        $logContents = '';
+
+        collect($log->getHandlers())->reject(function ($handler) {
+            return $handler instanceof SyslogHandler;
+        })->each(function ($handler) use (&$logContents, $log) {
+            if (file_exists($path = $log->getHandlers()[0]->getUrl())) {
+                $logContents = file_get_contents($path);
+            }
+        });
 
         return View::make('dashboard.settings.log')->withLog($logContents)->withSubMenu($this->subMenu);
+    }
+
+    /**
+     * Show the mail settings view.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function showMailView()
+    {
+        $this->subMenu['mail']['active'] = true;
+
+        return View::make('dashboard.settings.mail')->withConfig(Config::get('mail'));
+    }
+
+    /**
+     * Test the mail config.
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function testMail()
+    {
+        Auth::user()->notify(new SystemTestNotification());
+
+        return cachet_redirect('dashboard.settings.mail')
+            ->withSuccess(trans('dashboard.notifications.awesome'));
+    }
+
+    /**
+     * Handle updating of the settings.
+     *
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function postMail()
+    {
+        $config = Binput::get('config');
+
+        execute(new UpdateConfigCommand($config));
+
+        return cachet_redirect('dashboard.settings.mail')
+            ->withInput(Binput::all())
+            ->withSuccess(trans('dashboard.notifications.awesome'));
     }
 
     /**
@@ -297,6 +357,14 @@ class SettingsController extends Controller
             }
         }
 
+        if (isset($parameters['stylesheet'])) {
+            if ($stylesheet = Binput::get('stylesheet', null, false, false)) {
+                $setting->set('stylesheet', $stylesheet);
+            } else {
+                $setting->delete('stylesheet');
+            }
+        }
+
         if (Binput::hasFile('app_banner')) {
             $this->handleUpdateBanner($setting);
         }
@@ -307,6 +375,7 @@ class SettingsController extends Controller
             'remove_banner',
             'header',
             'footer',
+            'stylesheet',
         ];
 
         try {
@@ -325,6 +394,10 @@ class SettingsController extends Controller
             Lang::setLocale(Binput::get('app_locale'));
         }
 
+        if (Binput::has('always_authenticate')) {
+            Artisan::call('route:clear');
+        }
+
         return Redirect::back()->withSuccess(trans('dashboard.settings.edit.success'));
     }
 
@@ -338,6 +411,7 @@ class SettingsController extends Controller
     protected function handleUpdateBanner(Repository $setting)
     {
         $file = Binput::file('app_banner');
+        $redirectUrl = $this->subMenu['theme']['url'];
 
         // Image Validation.
         // Image size in bytes.

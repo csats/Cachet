@@ -47,9 +47,11 @@ return [
     */
 
     'displayers' => [
-        'CachetHQ\Cachet\Foundation\Exceptions\Displayers\JsonValidationDisplayer',
+        'CachetHQ\Cachet\Foundation\Exceptions\Displayers\MaintenanceDisplayer',
+        'CachetHQ\Cachet\Foundation\Exceptions\Displayers\SettingsDisplayer',
         'CachetHQ\Cachet\Foundation\Exceptions\Displayers\RedirectDisplayer',
         'CachetHQ\Cachet\Foundation\Exceptions\Displayers\ThrottleDisplayer',
+        'CachetHQ\Cachet\Foundation\Exceptions\Displayers\JsonValidationDisplayer',
         'GrahamCampbell\Exceptions\Displayers\DebugDisplayer',
         'GrahamCampbell\Exceptions\Displayers\HtmlDisplayer',
         'GrahamCampbell\Exceptions\Displayers\JsonDisplayer',
@@ -106,7 +108,7 @@ return [
         'Illuminate\Auth\Access\AuthorizationException'                 => 'warning',
         'Illuminate\Database\Eloquent\ModelNotFoundException'           => 'warning',
         'Illuminate\Session\TokenMismatchException'                     => 'notice',
-        'Symfony\Component\HttpKernel\Exception\HttpExceptionInterface' => 'warning',
+        'Symfony\Component\HttpKernel\Exception\HttpExceptionInterface' => 'notice',
         'Symfony\Component\Debug\Exception\FatalErrorException'         => 'critical',
         'Exception'                                                     => 'error',
     ],

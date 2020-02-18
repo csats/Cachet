@@ -22,6 +22,13 @@ use Illuminate\Contracts\Routing\Registrar;
 class TemplateRoutes
 {
     /**
+     * Defines if these routes are for the browser.
+     *
+     * @var bool
+     */
+    public static $browser = true;
+
+    /**
      * Define the dashboard template routes.
      *
      * @param \Illuminate\Contracts\Routing\Registrar $router
@@ -31,26 +38,36 @@ class TemplateRoutes
     public function map(Registrar $router)
     {
         $router->group([
-            'middleware' => ['web', 'auth'],
+            'middleware' => ['auth'],
             'namespace'  => 'Dashboard',
-            'as'         => 'dashboard.templates.',
             'prefix'     => 'dashboard/templates',
         ], function (Registrar $router) {
             $router->get('/', [
-                'as'   => 'index',
-                'uses' => 'IncidentController@showTemplates',
+                'as'   => 'get:dashboard.templates',
+                'uses' => 'IncidentTemplateController@showTemplates',
             ]);
-            $router->get('add', [
-                'as'   => 'add',
-                'uses' => 'IncidentController@showAddIncidentTemplate',
+
+            $router->get('create', [
+                'as'   => 'get:dashboard.templates.create',
+                'uses' => 'IncidentTemplateController@showAddIncidentTemplate',
             ]);
-            $router->post('add', 'IncidentController@createIncidentTemplateAction');
-            $router->get('{incident_template}/edit', [
-                'as'   => 'edit',
-                'uses' => 'IncidentController@showEditTemplateAction',
+            $router->post('create', [
+                'as'   => 'post:dashboard.templates.create',
+                'uses' => 'IncidentTemplateController@createIncidentTemplateAction',
             ]);
-            $router->post('{incident_template}/edit', 'IncidentController@editTemplateAction');
-            $router->delete('{incident_template}/delete', 'IncidentController@deleteTemplateAction');
+
+            $router->get('{incident_template}', [
+                'as'   => 'get:dashboard.templates.edit',
+                'uses' => 'IncidentTemplateController@showEditTemplateAction',
+            ]);
+            $router->post('{incident_template}', [
+                'as'   => 'post:dashboard.templates.edit',
+                'uses' => 'IncidentTemplateController@editTemplateAction',
+            ]);
+            $router->delete('{incident_template}', [
+                'as'   => 'delete:dashboard.templates.delete',
+                'uses' => 'IncidentTemplateController@deleteTemplateAction',
+            ]);
         });
     }
 }
